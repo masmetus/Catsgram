@@ -1,7 +1,8 @@
-package ru.yandex.practicum.catsgram.service;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import ru.yandex.practicum.catsgram.service.PostService;
+import ru.yandex.practicum.catsgram.service.UserService;
 import ru.yandex.practicum.catsgram.util.SortOrder;
 import ru.yandex.practicum.catsgram.model.Post;
 import ru.yandex.practicum.catsgram.model.User;
