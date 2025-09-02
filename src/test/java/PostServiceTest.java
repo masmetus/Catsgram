@@ -1,9 +1,13 @@
+package ru.yandex.practicum.catsgram.service;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import ru.yandex.practicum.catsgram.util.SortOrder;
 import ru.yandex.practicum.catsgram.model.Post;
 import ru.yandex.practicum.catsgram.model.User;
-import ru.yandex.practicum.catsgram.service.PostService;
-import ru.yandex.practicum.catsgram.service.UserService;
+import ru.yandex.practicum.catsgram.exception.ParameterNotValidException;
+import ru.yandex.practicum.catsgram.exception.NotFoundException;
+import ru.yandex.practicum.catsgram.exception.ConditionsNotMetException;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -11,7 +15,6 @@ import java.util.Collection;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
-
 
 public class PostServiceTest {
 
@@ -49,11 +52,11 @@ public class PostServiceTest {
         Thread.sleep(100);
         createTestPost(3L, user.getId(), "Третий", Instant.now());
 
-        Collection<Post> result = postService.findAll(0, 10, "desc");
+        Collection<Post> result = postService.findAll(0, 10, SortOrder.DESC);
         assertEquals(3, result.size());
         assertEquals("Третий", result.iterator().next().getDescription());
 
-        result = postService.findAll(0, 10, "asc");
+        result = postService.findAll(0, 10, SortOrder.ASC);
         assertEquals("Первый", result.iterator().next().getDescription());
     }
 
@@ -61,14 +64,11 @@ public class PostServiceTest {
     void findAll_ShouldReturnLimitedPosts_WhenSizeSpecified() {
         User user = createTestUser("test@mail.ru");
 
-        // Создаем 5 постов
         for (int i = 1; i <= 5; i++) {
             createTestPost((long) i, user.getId(), "Post " + i, Instant.now().minusSeconds(i * 100));
         }
 
-        // Запрашиваем только 2 поста
-        Collection<Post> result = postService.findAll(0, 2, "desc");
-
+        Collection<Post> result = postService.findAll(0, 2, SortOrder.DESC);
         assertEquals(2, result.size(), "Должно вернуть 2 поста");
     }
 
@@ -76,14 +76,11 @@ public class PostServiceTest {
     void findAll_ShouldReturnAllPosts_WhenSizeLargerThanTotal() {
         User user = createTestUser("test@mail.ru");
 
-        // Создаем 3 поста
         for (int i = 1; i <= 3; i++) {
             createTestPost((long) i, user.getId(), "Post " + i, Instant.now().minusSeconds(i * 100));
         }
 
-        // Запрашиваем 10 постов
-        Collection<Post> result = postService.findAll(0, 10, "desc");
-
+        Collection<Post> result = postService.findAll(0, 10, SortOrder.DESC);
         assertEquals(3, result.size(), "Должно вернуть все 3 поста");
     }
 
@@ -91,15 +88,11 @@ public class PostServiceTest {
     void findAll_ShouldReturnCorrectSlice_WhenFromAndSizeSpecified() {
         User user = createTestUser("test@mail.ru");
 
-        // Создаем 5 постов
         for (int i = 1; i <= 5; i++) {
             createTestPost((long) i, user.getId(), "Post " + i, Instant.now().minusSeconds(i * 100));
         }
 
-        // Пропускаем 2 поста, берем 2 следующих
-        Collection<Post> result = postService.findAll(2, 2, "desc");
-
-        // Должны вернуться посты с 3 по 4 (после пропуска первых 2)
+        Collection<Post> result = postService.findAll(2, 2, SortOrder.DESC);
         assertEquals(2, result.size(), "Должно вернуть 2 поста");
     }
 
@@ -107,30 +100,25 @@ public class PostServiceTest {
     void findAll_ShouldReturnEmpty_WhenFromExceedsTotal() {
         User user = createTestUser("test@mail.ru");
 
-        // Создаем 3 поста
         for (int i = 1; i <= 3; i++) {
             createTestPost((long) i, user.getId(), "Post " + i, Instant.now().minusSeconds(i * 100));
         }
 
-        // Пытаемся взять с 10-й позиции
-        Collection<Post> result = postService.findAll(10, 5, "desc");
-
+        Collection<Post> result = postService.findAll(10, 5, SortOrder.DESC);
         assertTrue(result.isEmpty(), "Должен вернуть пустой список");
     }
 
     @Test
-    void findAll_ShouldReturnEmpty_WhenSizeZero() {
+    void findAll_ShouldThrowException_WhenSizeZero() {
         User user = createTestUser("test@mail.ru");
 
-        // Создаем 3 поста
         for (int i = 1; i <= 3; i++) {
             createTestPost((long) i, user.getId(), "Post " + i, Instant.now().minusSeconds(i * 100));
         }
 
-        // Запрашиваем 0 постов
-        Collection<Post> result = postService.findAll(0, 0, "desc");
-
-        assertTrue(result.isEmpty(), "Должен вернуть пустой список при size=0");
+        assertThrows(ParameterNotValidException.class, () -> {
+            postService.findAll(0, 0, SortOrder.DESC);
+        });
     }
 
     @Test
@@ -146,7 +134,6 @@ public class PostServiceTest {
     void findAll_ShouldReturnCorrectPosts_WhenPaginationUsed() throws InterruptedException {
         User user = createTestUser("test@mail.ru");
 
-        // Создаем посты с разными описаниями. Нужен делей, тесты слишком быстро генерят данные и валятся
         createTestPost(1L, user.getId(), "Post A", Instant.now().minusSeconds(400));
         Thread.sleep(100);
         createTestPost(2L, user.getId(), "Post B", Instant.now().minusSeconds(300));
@@ -156,15 +143,102 @@ public class PostServiceTest {
         createTestPost(4L, user.getId(), "Post D", Instant.now().minusSeconds(100));
         Thread.sleep(100);
 
-        // Берем 2 поста начиная со 2-й позиции
-        Collection<Post> result = postService.findAll(2, 2, "desc");
-
+        Collection<Post> result = postService.findAll(2, 2, SortOrder.DESC);
         assertEquals(2, result.size());
-        // Порядок: D, C, B, A
-        // Пропускаем 2 (D, C), берем 2 следующих (B, A)
+
         List<Post> resultList = new ArrayList<>(result);
         assertEquals("Post B", resultList.get(0).getDescription());
         assertEquals("Post A", resultList.get(1).getDescription());
+    }
+
+    @Test
+    void findAll_ShouldThrowException_WhenFromNegative() {
+        assertThrows(ParameterNotValidException.class, () -> {
+            postService.findAll(-1, 10, SortOrder.DESC);
+        });
+    }
+
+    @Test
+    void findAll_ShouldThrowException_WhenSizeNegative() {
+        assertThrows(ParameterNotValidException.class, () -> {
+            postService.findAll(0, -5, SortOrder.DESC);
+        });
+    }
+
+    @Test
+    void findPostById_ShouldThrowNotFoundException_WhenNotExists() {
+        assertThrows(NotFoundException.class, () -> {
+            postService.findPostById(999L);
+        });
+    }
+
+    @Test
+    void create_ShouldThrowConditionsNotMetException_WhenDescriptionNull() {
+        User user = createTestUser("test@mail.ru");
+
+        Post post = new Post();
+        post.setAuthorId(user.getId());
+        post.setDescription(null);
+
+        assertThrows(ConditionsNotMetException.class, () -> {
+            postService.create(post);
+        });
+    }
+
+    @Test
+    void create_ShouldThrowConditionsNotMetException_WhenDescriptionBlank() {
+        User user = createTestUser("test@mail.ru");
+
+        Post post = new Post();
+        post.setAuthorId(user.getId());
+        post.setDescription("   ");
+
+        assertThrows(ConditionsNotMetException.class, () -> {
+            postService.create(post);
+        });
+    }
+
+    @Test
+    void update_ShouldThrowNotFoundException_WhenPostNotExists() {
+        User user = createTestUser("test@mail.ru");
+
+        Post post = new Post();
+        post.setId(999L);
+        post.setAuthorId(user.getId());
+        post.setDescription("Valid description");
+
+        assertThrows(NotFoundException.class, () -> {
+            postService.update(post);
+        });
+    }
+
+    @Test
+    void update_ShouldThrowConditionsNotMetException_WhenIdNull() {
+        User user = createTestUser("test@mail.ru");
+
+        Post post = new Post();
+        post.setId(null);
+        post.setAuthorId(user.getId());
+        post.setDescription("Valid description");
+
+        assertThrows(ConditionsNotMetException.class, () -> {
+            postService.update(post);
+        });
+    }
+
+    @Test
+    void update_ShouldThrowConditionsNotMetException_WhenDescriptionBlank() {
+        User user = createTestUser("test@mail.ru");
+        createTestPost(1L, user.getId(), "Original", Instant.now());
+
+        Post post = new Post();
+        post.setId(1L);
+        post.setAuthorId(user.getId());
+        post.setDescription("   ");
+
+        assertThrows(ConditionsNotMetException.class, () -> {
+            postService.update(post);
+        });
     }
 
     private User createTestUser(String email) {

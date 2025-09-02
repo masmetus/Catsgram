@@ -1,10 +1,11 @@
 package ru.yandex.practicum.catsgram.service;
 
-import jakarta.validation.ValidationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import ru.yandex.practicum.catsgram.util.SortOrder;
 import ru.yandex.practicum.catsgram.exception.ConditionsNotMetException;
 import ru.yandex.practicum.catsgram.exception.NotFoundException;
+import ru.yandex.practicum.catsgram.exception.ParameterNotValidException;
 import ru.yandex.practicum.catsgram.model.Post;
 
 import java.time.Instant;
@@ -22,19 +23,17 @@ public class PostService {
 
     private final Map<Long, Post> posts = new HashMap<>();
 
-    public Collection<Post> findAll(int from, int size, String sort) {
-        if (!List.of("asc", "desc").contains(sort.toLowerCase())) {
-            throw new ValidationException("Параметр 'sort' должен быть равен 'asc' или 'desc'");
-        }
+    public Collection<Post> findAll(Integer from, Integer size, SortOrder sort) {
         if (from < 0) {
-            throw new ConditionsNotMetException("Параметр 'from' не может быть отрицательным");
+            throw new ParameterNotValidException(from.toString(), "Некорректное значение отступа. Значение должно быть" +
+                    " больше нуля");
         }
-        if (size < 0) {
-            throw new ConditionsNotMetException("Параметр 'size' не может быть отрицательным");
+        if (size <= 0) {
+            throw new ParameterNotValidException(size.toString(), "Некорректный размер выборки. Размер должен быть больше нуля");
         }
 
         Comparator<Post> comparator = Comparator.comparing(Post::getPostDate);
-        if ("desc".equalsIgnoreCase(sort)) {
+        if (SortOrder.DESC.equals(sort)) {
             comparator = comparator.reversed();
         }
 
@@ -76,12 +75,10 @@ public class PostService {
 
     // TODO: добавить проверку существования автора поста
     public Post update(Post newPost) {
-        // проверяем необходимые условия
         userService.findUserById(newPost.getAuthorId());
         validateUpdatePost(newPost);
 
         Post oldPost = posts.get(newPost.getId());
-        // если публикация найдена и все условия соблюдены, обновляем её содержимое
         oldPost.setDescription(newPost.getDescription());
         return oldPost;
     }
@@ -104,7 +101,6 @@ public class PostService {
         }
     }
 
-
     private long getNextId() {
         long currentMaxId = posts.keySet()
                 .stream()
@@ -113,4 +109,7 @@ public class PostService {
                 .orElse(0);
         return ++currentMaxId;
     }
+
+
+
 }
